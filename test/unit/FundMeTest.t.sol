@@ -2,8 +2,8 @@
 pragma solidity ^0.8.18;
 
 import {Test ,console} from "forge-std/Test.sol";
-import {FundMe} from "../src/FundMe.sol";
-import {DeployFundMe} from "../script/DeployFundMe.s.sol";
+import {FundMe} from "../../src/FundMe.sol";
+import {DeployFundMe} from "../../script/DeployFundMe.s.sol";
 contract FundMeTest is Test {
     FundMe fundMe;
     address USER = makeAddr("user");
@@ -82,8 +82,24 @@ contract FundMeTest is Test {
         assert(startingFundMeBalance + startingOwnerBalance == fundMe.getOwner().balance);
         // assert((numberOfFunders + 1) * SEND_VALUE == fundMe.getOwner().balance - startingOwnerBalance);
     }
+    function testWithdrawFromMultipleFundersCheaper() public funded(){
+        uint160 numberOfFunders = 10;
+        uint160 startingFunderIndex = 1;
+        for(uint160 i =startingFunderIndex; i<numberOfFunders;i++){
+            hoax(address(i),SEND_VALUE);// do both deal and prank
+             fundMe.fund{value: SEND_VALUE}();
+        }
+        uint256 startingFundMeBalance = address(fundMe).balance;
+        uint256 startingOwnerBalance = fundMe.getOwner().balance; 
+        vm.startPrank(fundMe.getOwner());
+        fundMe.cheaperWithdraw();
+        vm.stopPrank();
+        assert(address(fundMe).balance == 0);
+        assert(startingFundMeBalance + startingOwnerBalance == fundMe.getOwner().balance);
+        // assert((numberOfFunders + 1) * SEND_VALUE == fundMe.getOwner().balance - startingOwnerBalance);
+    }
 }
-//12:21
+//12:40
 
 //Different types of test
 // 1. Unit - Testing a specific part of our code

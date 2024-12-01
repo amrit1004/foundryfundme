@@ -3,57 +3,85 @@
 pragma solidity ^0.8.18;
 
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
-import {PriceConverter} from './PriceConverter.sol';
+import {PriceConverter} from "./PriceConverter.sol";
 
 error FundMe_NotOwner();
 
-
 contract FundMe {
-   using PriceConverter for uint256;
+    using PriceConverter for uint256;
 
     uint256 public constant MINIMUM_USD = 5e18;
 
     address[] private s_funders;
-    mapping(address funder => uint256 amountFunded) private s_addressToAmountFunded;
+    mapping(address funder => uint256 amountFunded)
+        private s_addressToAmountFunded;
 
     address private immutable i_owner;
     AggregatorV3Interface private s_priceFeed;
 
-     constructor(address priceFeed) {
-           i_owner = msg.sender;
-           s_priceFeed = AggregatorV3Interface(priceFeed);
-     }
+    constructor(address priceFeed) {
+        i_owner = msg.sender;
+        s_priceFeed = AggregatorV3Interface(priceFeed);
+    }
 
     function fund() public payable {
-      
-        require(msg.value.getConversionRate(s_priceFeed)>= MINIMUM_USD,"didn't send enough eth"); // 1e18 = 1ETH = 1* 10 base 18 wei
+        require(
+            msg.value.getConversionRate(s_priceFeed) >= MINIMUM_USD,
+            "didn't send enough eth"
+        ); // 1e18 = 1ETH = 1* 10 base 18 wei
         s_addressToAmountFunded[msg.sender] += msg.value;
         s_funders.push(msg.sender); // whoever call this function
     }
-   function withdraw() public onlyOwner{
-     for(uint256 funderIndex = 0; funderIndex <s_funders.length; funderIndex++){
-         address funder = s_funders[funderIndex];
-         s_addressToAmountFunded[funder] =0;
-     }
-     s_funders = new address[](0); // resetting the array
-     //using transfer
-    //  payable(msg.sender).transfer(address(this).balance); // sending eth
-    //  //send
-    //  bool sendSuccess = payable(msg.sender).send(address(this).balance);
-    //  require(sendSuccess ,"Send Failed");
-     //call
-    (bool callSuccess,)= payable(msg.sender).call{value: address(this).balance}("");
-    require(callSuccess ,"Call Failed");
-   }
-   function getVersion() public view returns (uint256) {
+
+    function cheaperWithdraw() public onlyOwner {
+        uint256 fundersLength = s_funders.length;
+        for (
+            uint256 funderIndex = 0;
+            funderIndex < fundersLength;
+            funderIndex++
+        ) {
+            address funder = s_funders[funderIndex];
+            s_addressToAmountFunded[funder] = 0;
+        }
+        s_funders = new address[](0);
+        (bool callSuccess, ) = payable(msg.sender).call{
+            value: address(this).balance
+        }("");
+        require(callSuccess, "Call Failed");
+    }
+
+    function withdraw() public onlyOwner {
+        for (
+            uint256 funderIndex = 0;
+            funderIndex < s_funders.length;
+            funderIndex++
+        ) {
+            address funder = s_funders[funderIndex];
+            s_addressToAmountFunded[funder] = 0;
+        }
+        s_funders = new address[](0); // resetting the array
+        //using transfer
+        //  payable(msg.sender).transfer(address(this).balance); // sending eth
+        //  //send
+        //  bool sendSuccess = payable(msg.sender).send(address(this).balance);
+        //  require(sendSuccess ,"Send Failed");
+        //call
+        (bool callSuccess, ) = payable(msg.sender).call{
+            value: address(this).balance
+        }("");
+        require(callSuccess, "Call Failed");
+    }
+
+    function getVersion() public view returns (uint256) {
         return s_priceFeed.version();
     }
 
-   modifier onlyOwner(){
-    if (msg.sender != i_owner) revert FundMe_NotOwner();
-    _;
-   } 
-   // Ether is sent to contract
+    modifier onlyOwner() {
+        if (msg.sender != i_owner) revert FundMe_NotOwner();
+        _;
+    }
+
+    // Ether is sent to contract
     //      is msg.data empty?
     //          /   \
     //         yes  no
@@ -71,18 +99,20 @@ contract FundMe {
     receive() external payable {
         fund();
     }
-   //view / pure function getters
-    
-    function getAddressToAmountFunded(address fundingAddress)
-    external view returns (uint256)
-    {
+
+    //view / pure function getters
+
+    function getAddressToAmountFunded(
+        address fundingAddress
+    ) external view returns (uint256) {
         return s_addressToAmountFunded[fundingAddress];
     }
+
     function getFunder(uint256 index) public view returns (address) {
         return s_funders[index];
     }
-    function getOwner() external view returns (address){
+
+    function getOwner() external view returns (address) {
         return i_owner;
     }
 }
-
